@@ -6,17 +6,17 @@
   <title>QR 스캐너</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    :root { --bg:#0a0f1a; --surface:#111827; --accent:#00d4aa; --accent2:#0096ff; --text:#f0f4ff; --muted:#7a8aaa; --danger:#ff4d6d; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root { --accent:#00d4aa; --accent2:#0096ff; --bg:#0a0f1a; --surface:#111827; --text:#f0f4ff; --muted:#7a8aaa; --danger:#ff4d6d; }
     body { background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; height:100dvh; display:flex; flex-direction:column; overflow:hidden; user-select:none; }
     header { display:flex; align-items:center; justify-content:center; padding:14px 20px 10px; position:relative; flex-shrink:0; }
-    header h1 { font-size:1.1rem; font-weight:700; }
-    .status-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); margin-right:8px; animation:pulse 2s infinite; }
-    .status-dot.off { background:var(--muted); box-shadow:none; animation:none; }
+    h1 { font-size:1.1rem; font-weight:700; }
+    .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); margin-right:8px; }
+    .dot.on { background:var(--accent); box-shadow:0 0 8px var(--accent); animation:pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .save-btn { position:absolute; right:16px; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; border:none; border-radius:20px; padding:7px 14px; font-size:0.78rem; font-weight:700; cursor:pointer; }
-    .viewfinder-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:0 16px; min-height:0; }
-    .viewfinder { position:relative; width:100%; max-width:500px; aspect-ratio:1/1; border-radius:20px; overflow:hidden; background:#000; }
+    .vf-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:0 16px; min-height:0; }
+    .vf { position:relative; width:100%; max-width:500px; aspect-ratio:1/1; border-radius:20px; overflow:hidden; background:#000; }
     video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
     canvas { display:none; }
     .corner { position:absolute; width:40px; height:40px; border-color:var(--accent); border-style:solid; }
@@ -24,186 +24,153 @@
     .corner.tr { top:14px; right:14px; border-width:3px 3px 0 0; border-radius:0 6px 0 0; }
     .corner.bl { bottom:14px; left:14px; border-width:0 0 3px 3px; border-radius:0 0 0 6px; }
     .corner.br { bottom:14px; right:14px; border-width:0 3px 3px 0; border-radius:0 0 6px 0; }
-    .scan-line { position:absolute; left:16px; right:16px; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); box-shadow:0 0 10px var(--accent); top:16px; animation:scan 2s ease-in-out infinite; z-index:11; }
+    .sline { position:absolute; left:16px; right:16px; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); box-shadow:0 0 10px var(--accent); animation:scan 2s ease-in-out infinite; z-index:11; display:none; }
+    .sline.on { display:block; }
     @keyframes scan { 0%{top:16px;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:calc(100% - 18px);opacity:0} }
-    .scan-line.paused { display:none; }
-    .success-overlay { position:absolute; inset:0; background:rgba(0,212,170,0.2); display:flex; align-items:center; justify-content:center; z-index:20; opacity:0; transition:opacity 0.25s; border-radius:20px; }
-    .success-overlay.show { opacity:1; }
-    .check-icon { font-size:70px; animation:pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
-    @keyframes pop { 0%{transform:scale(0)} 100%{transform:scale(1)} }
-    .idle-msg { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-size:0.9rem; background:#050a14; z-index:5; border-radius:20px; }
-    .idle-msg .big { font-size:3rem; }
-    .idle-msg.hide { display:none; }
-    .zoom-wrap { display:none; align-items:center; gap:10px; padding:8px 20px; flex-shrink:0; }
-    .zoom-wrap.show { display:flex; }
-    .zoom-label { font-size:0.78rem; color:var(--muted); min-width:36px; text-align:right; }
-    input[type=range] { flex:1; -webkit-appearance:none; height:4px; background:linear-gradient(90deg, var(--accent) var(--pct,0%), #2a3448 var(--pct,0%)); border-radius:2px; outline:none; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent); cursor:pointer; }
-    .hint { color:var(--muted); font-size:0.82rem; text-align:center; padding:6px 20px 2px; flex-shrink:0; }
-    .error-box { background:rgba(255,77,109,0.12); border:1.5px solid rgba(255,77,109,0.3); border-radius:12px; color:var(--danger); font-size:0.82rem; text-align:center; padding:10px 16px; margin:4px 20px; display:none; }
-    .error-box.show { display:block; }
+    .ok { position:absolute; inset:0; background:rgba(0,212,170,0.2); display:flex; align-items:center; justify-content:center; z-index:20; opacity:0; transition:opacity 0.25s; border-radius:20px; }
+    .ok.show { opacity:1; }
+    .idle { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); background:#050a14; z-index:5; border-radius:20px; }
+    .idle .big { font-size:3rem; }
+    .idle.hide { display:none; }
+    .hint { color:var(--muted); font-size:0.82rem; text-align:center; padding:8px 20px 2px; flex-shrink:0; }
+    .err { background:rgba(255,77,109,0.12); border:1.5px solid rgba(255,77,109,0.3); border-radius:12px; color:var(--danger); font-size:0.8rem; text-align:center; padding:10px 16px; margin:4px 20px; display:none; line-height:1.5; }
+    .err.show { display:block; }
     .controls { padding:10px 20px 20px; display:flex; gap:12px; justify-content:center; flex-shrink:0; }
-    .btn { flex:1; max-width:220px; padding:14px 10px; border:none; border-radius:14px; font-size:0.95rem; font-weight:700; cursor:pointer; transition:transform 0.1s; }
-    .btn:active { transform:scale(0.96); }
+    .btn { flex:1; max-width:220px; padding:14px; border:none; border-radius:14px; font-size:0.95rem; font-weight:700; cursor:pointer; }
     .btn-start { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
     .btn-stop { background:var(--surface); color:var(--muted); border:1.5px solid #2a3448; }
     .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:flex-end; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity 0.25s; }
     .overlay.open { opacity:1; pointer-events:all; }
     .popup { background:var(--surface); border-radius:24px 24px 0 0; padding:24px 24px 32px; width:100%; max-width:560px; transform:translateY(100%); transition:transform 0.35s cubic-bezier(0.34,1.2,0.64,1); }
     .overlay.open .popup { transform:translateY(0); }
-    .popup-handle { width:40px; height:4px; background:#2a3448; border-radius:2px; margin:0 auto 18px; }
-    .popup-icon { font-size:36px; text-align:center; margin-bottom:8px; }
-    .popup-title { font-size:0.75rem; color:var(--muted); text-align:center; margin-bottom:10px; letter-spacing:0.06em; text-transform:uppercase; }
-    .popup-url { background:#0d1628; border:1.5px solid #1e2d48; border-radius:12px; padding:14px 16px; font-size:0.9rem; color:var(--accent2); word-break:break-all; line-height:1.5; margin-bottom:18px; text-align:center; }
-    .popup-actions { display:flex; gap:10px; }
-    .popup-btn { flex:1; padding:14px 10px; border:none; border-radius:12px; font-size:0.9rem; font-weight:700; cursor:pointer; transition:transform 0.1s; }
-    .popup-btn:active { transform:scale(0.96); }
-    .popup-btn-open { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
-    .popup-btn-copy { background:#1a2540; color:var(--text); border:1.5px solid #2a3a5a; }
-    .popup-btn-close { background:#1a2540; color:var(--muted); border:1.5px solid #2a3a5a; flex:0 0 auto; padding:14px 18px; }
+    .handle { width:40px; height:4px; background:#2a3448; border-radius:2px; margin:0 auto 18px; }
+    .picon { font-size:36px; text-align:center; margin-bottom:8px; }
+    .ptitle { font-size:0.75rem; color:var(--muted); text-align:center; margin-bottom:10px; letter-spacing:0.06em; text-transform:uppercase; }
+    .purl { background:#0d1628; border:1.5px solid #1e2d48; border-radius:12px; padding:14px 16px; font-size:0.88rem; color:var(--accent2); word-break:break-all; line-height:1.5; margin-bottom:18px; text-align:center; }
+    .pbtns { display:flex; gap:10px; }
+    .pbtn { flex:1; padding:14px 10px; border:none; border-radius:12px; font-size:0.9rem; font-weight:700; cursor:pointer; }
+    .pbtn-open { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+    .pbtn-copy { background:#1a2540; color:var(--text); border:1.5px solid #2a3a5a; }
+    .pbtn-close { background:#1a2540; color:var(--muted); border:1.5px solid #2a3a5a; flex:0 0 auto; padding:14px 18px; }
     .toast { position:fixed; bottom:110px; left:50%; transform:translateX(-50%) translateY(20px); background:#1e2d48; color:var(--accent); font-size:0.85rem; font-weight:600; padding:10px 22px; border-radius:30px; opacity:0; transition:opacity 0.3s,transform 0.3s; z-index:200; white-space:nowrap; border:1px solid #2a3a5a; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
 <header>
-  <div class="status-dot off" id="statusDot"></div>
+  <div class="dot" id="dot"></div>
   <h1>QR 스캐너</h1>
-  <button class="save-btn" onclick="saveFile()">💾 저장</button>
+  <button class="save-btn" onclick="saveFile()">저장</button>
 </header>
-
-<div class="viewfinder-wrap">
-  <div class="viewfinder">
+<div class="vf-wrap">
+  <div class="vf">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
     <div class="corner tl"></div><div class="corner tr"></div>
     <div class="corner bl"></div><div class="corner br"></div>
-    <div class="scan-line paused" id="scanLine"></div>
-    <div class="success-overlay" id="successOverlay"><div class="check-icon">✅</div></div>
-    <div class="idle-msg" id="idleMsg"><div class="big">📷</div><div>아래 버튼을 눌러 시작하세요</div></div>
+    <div class="sline" id="sline"></div>
+    <div class="ok" id="ok"><span style="font-size:70px">✅</span></div>
+    <div class="idle" id="idle"><div class="big">📷</div><div>아래 버튼을 눌러 시작하세요</div></div>
   </div>
 </div>
-
-<div class="zoom-wrap" id="zoomWrap">
-  <span style="font-size:0.9rem">🔍</span>
-  <input type="range" id="zoomSlider" min="1" max="4" step="0.1" value="1" oninput="applyZoom(this.value)">
-  <span class="zoom-label" id="zoomLabel">1×</span>
-</div>
-
-<p class="hint" id="hint">QR코드를 화면 가득 채워주세요</p>
-<div class="error-box" id="errorBox"></div>
-
+<p class="hint">QR코드를 화면 가득 채워주세요</p>
+<div class="err" id="err"></div>
 <div class="controls">
   <button class="btn btn-start" id="btnStart" onclick="startScan()">📷 스캔 시작</button>
-  <button class="btn btn-stop" id="btnStop" onclick="stopScan()" style="display:none">⏹ 중지</button>
+  <button class="btn btn-stop" id="btnStop" onclick="stopScan()" style="display:none">중지</button>
 </div>
-
-<div class="overlay" id="overlay" onclick="closePopupByBg(event)">
+<div class="overlay" id="overlay" onclick="bgClose(event)">
   <div class="popup">
-    <div class="popup-handle"></div>
-    <div class="popup-icon">🔗</div>
-    <div class="popup-title">QR 코드 인식됨</div>
-    <div class="popup-url" id="popupUrl"></div>
-    <div class="popup-actions">
-      <button class="popup-btn popup-btn-open" id="btnOpen" onclick="openLink()">🌐 열기</button>
-      <button class="popup-btn popup-btn-copy" onclick="copyLink()">📋 복사</button>
-      <button class="popup-btn popup-btn-close" onclick="closePopup()">✕</button>
+    <div class="handle"></div>
+    <div class="picon">🔗</div>
+    <div class="ptitle">QR 코드 인식됨</div>
+    <div class="purl" id="purl"></div>
+    <div class="pbtns">
+      <button class="pbtn pbtn-open" id="btnOpen" onclick="openLink()">🌐 열기</button>
+      <button class="pbtn pbtn-copy" onclick="copyLink()">📋 복사</button>
+      <button class="pbtn pbtn-close" onclick="closePopup()">X</button>
     </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-  let stream=null, scanning=false, lastResult=null, rafId=null, cooldown=false;
-  let videoTrack=null, maxZoom=4, currentZoom=1;
+  var stream=null, scanning=false, lastResult=null, rafId=null, cooldown=false;
+  var video=document.getElementById('video');
+  var canvas=document.getElementById('canvas');
+  var ctx=canvas.getContext('2d',{willReadFrequently:true});
 
-  const video=document.getElementById('video');
-  const canvas=document.getElementById('canvas');
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-
-  function saveFile() {
-    const blob=new Blob([document.documentElement.outerHTML],{type:'text/html'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download='QR스캐너.html'; a.click();
-    URL.revokeObjectURL(a.href); showToast('QR스캐너.html 저장됨 ✓');
+  function saveFile(){
+    var b=new Blob([document.documentElement.outerHTML],{type:'text/html'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download='QR스캐너.html'; a.click();
+    URL.revokeObjectURL(a.href); showToast('저장됨');
   }
 
-  async function startScan() {
-    document.getElementById('errorBox').classList.remove('show');
-    try {
-      stream=await navigator.mediaDevices.getUserMedia({
-        video:{ facingMode:{ideal:'environment'}, width:{ideal:3840}, height:{ideal:3840} }
-      });
-      video.srcObject=stream;
-      await video.play();
+  function startScan(){
+    document.getElementById('err').classList.remove('show');
+    // 단순한 제약조건부터 시도
+    tryCamera([
+      {video:{facingMode:'environment', width:1280, height:960}},
+      {video:{facingMode:'environment', width:640, height:480}},
+      {video:{facingMode:'environment'}},
+      {video:{facingMode:{ideal:'environment'}}},
+      {video:true}
+    ], 0);
+  }
 
-      videoTrack=stream.getVideoTracks()[0];
-      const caps=videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-      if(caps.zoom){
-        maxZoom=Math.min(caps.zoom.max,6);
-        document.getElementById('zoomSlider').max=maxZoom;
-        document.getElementById('zoomWrap').classList.add('show');
-      }
-
-      scanning=true;
-      document.getElementById('idleMsg').classList.add('hide');
-      document.getElementById('scanLine').classList.remove('paused');
-      document.getElementById('statusDot').classList.remove('off');
-      document.getElementById('btnStart').style.display='none';
-      document.getElementById('btnStop').style.display='';
-      document.getElementById('hint').textContent='QR코드를 화면 가득 채워주세요';
-      tick();
-    } catch(e) {
-      document.getElementById('errorBox').textContent='카메라 접근 권한이 필요합니다. 브라우저 설정에서 카메라 권한을 허용해 주세요.';
-      document.getElementById('errorBox').classList.add('show');
+  function tryCamera(list, i){
+    if(i >= list.length){
+      showErr('카메라를 열 수 없습니다.\n주소창 왼쪽 아이콘 → 카메라 허용 → 새로고침 해주세요.');
+      return;
     }
+    navigator.mediaDevices.getUserMedia(list[i])
+      .then(function(s){
+        stream=s;
+        video.srcObject=s;
+        video.play().then(function(){
+          scanning=true;
+          document.getElementById('idle').classList.add('hide');
+          document.getElementById('sline').classList.add('on');
+          document.getElementById('dot').classList.add('on');
+          document.getElementById('btnStart').style.display='none';
+          document.getElementById('btnStop').style.display='';
+          tick();
+        }).catch(function(e){ showErr('재생 오류: '+e.message); });
+      })
+      .catch(function(){ tryCamera(list, i+1); });
   }
 
-  async function applyZoom(val) {
-    currentZoom=parseFloat(val);
-    document.getElementById('zoomLabel').textContent=currentZoom.toFixed(1)+'×';
-    const pct=((currentZoom-1)/(maxZoom-1))*100;
-    document.getElementById('zoomSlider').style.setProperty('--pct',pct+'%');
-    if(videoTrack && videoTrack.getCapabilities){
-      const caps=videoTrack.getCapabilities();
-      if(caps.zoom){ try{ await videoTrack.applyConstraints({advanced:[{zoom:currentZoom}]}); }catch(e){} }
-    }
-  }
-
-  function stopScan() {
+  function stopScan(){
     scanning=false;
     if(rafId) cancelAnimationFrame(rafId);
-    if(stream) stream.getTracks().forEach(t=>t.stop());
-    video.srcObject=null;
-    document.getElementById('scanLine').classList.add('paused');
-    document.getElementById('statusDot').classList.add('off');
-    document.getElementById('idleMsg').classList.remove('hide');
-    document.getElementById('zoomWrap').classList.remove('show');
-    document.getElementById('zoomSlider').value=1;
-    document.getElementById('zoomLabel').textContent='1×';
+    if(stream) stream.getTracks().forEach(function(t){t.stop();});
+    stream=null; video.srcObject=null;
+    document.getElementById('sline').classList.remove('on');
+    document.getElementById('dot').classList.remove('on');
+    document.getElementById('idle').classList.remove('hide');
     document.getElementById('btnStart').style.display='';
     document.getElementById('btnStop').style.display='none';
+    lastResult=null;
   }
 
-  function tick() {
-    if(!scanning) return;
-    if(video.readyState===video.HAVE_ENOUGH_DATA && !cooldown){
-      const vw=video.videoWidth, vh=video.videoHeight;
-      if(vw && vh){
-        // 1차: 전체 해상도로 시도
+  function tick(){
+    if(!scanning){ rafId=requestAnimationFrame(tick); return; }
+    if(video.readyState >= 2 && !cooldown){
+      var vw=video.videoWidth, vh=video.videoHeight;
+      if(vw>0 && vh>0){
+        // 1차: 전체
         canvas.width=vw; canvas.height=vh;
         ctx.drawImage(video,0,0);
-        let code=jsQR(ctx.getImageData(0,0,vw,vh).data,vw,vh,{inversionAttempts:'attemptBoth'});
-
-        // 2차: 중앙 60% 크롭 확대 재시도 (작은 QR 인식)
+        var code=jsQR(ctx.getImageData(0,0,vw,vh).data,vw,vh,{inversionAttempts:'attemptBoth'});
+        // 2차: 중앙 크롭
         if(!code){
-          const sz=Math.min(vw,vh)*0.6;
-          const cx=(vw-sz)/2, cy=(vh-sz)/2;
-          canvas.width=640; canvas.height=640;
-          ctx.drawImage(video,cx,cy,sz,sz,0,0,640,640);
-          code=jsQR(ctx.getImageData(0,0,640,640).data,640,640,{inversionAttempts:'attemptBoth'});
+          var sz=Math.min(vw,vh)*0.65;
+          var cx=(vw-sz)/2, cy=(vh-sz)/2;
+          canvas.width=512; canvas.height=512;
+          ctx.drawImage(video,cx,cy,sz,sz,0,0,512,512);
+          code=jsQR(ctx.getImageData(0,0,512,512).data,512,512,{inversionAttempts:'attemptBoth'});
         }
-
         if(code && code.data && code.data!==lastResult){
           lastResult=code.data;
           onDetected(code.data);
@@ -213,54 +180,47 @@
     rafId=requestAnimationFrame(tick);
   }
 
-  function onDetected(data) {
+  function onDetected(data){
     cooldown=true;
-    const so=document.getElementById('successOverlay');
-    so.classList.add('show');
+    var ok=document.getElementById('ok');
+    ok.classList.add('show');
     if(navigator.vibrate) navigator.vibrate([80,40,80]);
-    setTimeout(()=>{
-      so.classList.remove('show');
+    setTimeout(function(){
+      ok.classList.remove('show');
       showPopup(data);
-      setTimeout(()=>{ cooldown=false; lastResult=null; },3000);
-    },600);
+      setTimeout(function(){ cooldown=false; lastResult=null; }, 3000);
+    }, 600);
   }
 
-  function showPopup(data) {
-    document.getElementById('popupUrl').textContent=data;
-    const isUrl=/^https?:\/\//i.test(data)||/^www\./i.test(data);
+  function showPopup(data){
+    document.getElementById('purl').textContent=data;
+    var isUrl=/^https?:\/\//i.test(data)||/^www\./i.test(data);
     document.getElementById('btnOpen').style.display=isUrl?'':'none';
     document.getElementById('overlay').classList.add('open');
   }
 
-  function closePopup() {
-    document.getElementById('overlay').classList.remove('open');
-    lastResult=null;
-  }
+  function closePopup(){ document.getElementById('overlay').classList.remove('open'); lastResult=null; }
+  function bgClose(e){ if(e.target===document.getElementById('overlay')) closePopup(); }
 
-  function closePopupByBg(e){ if(e.target===document.getElementById('overlay')) closePopup(); }
-
-  function openLink() {
-    let url=document.getElementById('popupUrl').textContent.trim();
+  function openLink(){
+    var url=document.getElementById('purl').textContent.trim();
     if(!/^https?:\/\//i.test(url)) url='https://'+url;
     window.open(url,'_blank');
   }
 
-  function copyLink() {
-    const text=document.getElementById('popupUrl').textContent.trim();
-    if(navigator.clipboard){
-      navigator.clipboard.writeText(text).then(()=>showToast('클립보드에 복사되었습니다 ✓'));
-    } else {
-      const ta=document.createElement('textarea');
-      ta.value=text; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta);
-      showToast('클립보드에 복사되었습니다 ✓');
-    }
+  function copyLink(){
+    var text=document.getElementById('purl').textContent.trim();
+    if(navigator.clipboard){ navigator.clipboard.writeText(text).then(function(){ showToast('복사됨'); }); }
+    else{ var t=document.createElement('textarea'); t.value=text; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); showToast('복사됨'); }
   }
 
-  function showToast(msg) {
-    const t=document.getElementById('toast');
-    t.textContent=msg; t.classList.add('show');
-    setTimeout(()=>t.classList.remove('show'),2200);
+  function showToast(msg){
+    var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  function showErr(msg){
+    var e=document.getElementById('err'); e.textContent=msg; e.classList.add('show');
   }
 </script>
 </body>
